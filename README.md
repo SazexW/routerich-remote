@@ -1,35 +1,31 @@
-# RouteRich Remote Setup v3
+# RouteRich Remote Setup
 
-Публичный репозиторий для скрипта удалённого подключения RouteRich/OpenWrt к RemoteRouteRich/Tailscale.
+Скрипт для подключения RouteRich/OpenWrt роутера к RemoteRouteRich/Tailscale.
 
-## Что исправлено в v3
+## Важно
 
-В v1/v2 скрипт создавал свою firewall-зону `firewall.tailscale` с именем `tailscale`.
-На RouteRich `luci-app-tailscale` уже создаёт штатную зону `firewall.tszone` с тем же именем `tailscale`.
+Скрипт не содержит ключей. Во время запуска нужно вставить `Device Auth Key`.
 
-Из-за двух зон с одинаковым именем OpenWrt/fw4 может падать с ошибкой:
+Не вставлять:
+- `Management Key`
+- `auth_key`, если в JSON отдельно есть `device_auth_key`
+- `tailnet_id`
+- `domain`
 
-```text
-Error: redefinition of symbol 'tailscale_devices'
-The rendered ruleset contains errors, not doing firewall restart.
-```
-
-v3:
-- удаляет старую `firewall.tailscale`;
-- удаляет анонимные дубли зоны `tailscale`;
-- использует штатную `firewall.tszone`;
-- проверяет `fw4 check`;
-- не игнорирует ошибку перезапуска firewall.
-
-## Использование
+## Запуск на роутере
 
 ```sh
-wget -O /tmp/rr-remote-setup.sh 'RAW_URL_СКРИПТА'
+wget -O /tmp/rr-remote-setup.sh 'https://raw.githubusercontent.com/SazexW/routerich-remote/refs/heads/main/rr-remote-setup.sh'
 sh /tmp/rr-remote-setup.sh
 ```
 
-## Что вводить
+## После установки
 
-- hostname: например `router-main` или `router-client-01`
-- роль: `1` для main/admin, `2` для client
-- ключ: именно `device_auth_key`, не `management_key`
+LuCI открывать с устройства, которое тоже подключено к этой же RemoteRouteRich/Tailscale-сети:
+
+```text
+http://100.x.x.x/cgi-bin/luci/
+```
+
+Для веб-терминала через Tailscale:
+`Службы -> Терминал -> Конфиг -> Интерфейс -> tailscale0`.
