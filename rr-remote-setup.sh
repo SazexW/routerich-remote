@@ -1,7 +1,7 @@
 #!/bin/sh
 # RouteRich RemoteRouteRich/Tailscale setup helper
-# v4-official: close to official RouteRich guide.
-# No keys are stored in this script.
+# v5-guide: минимально по гайду RouteRich.
+# В скрипте НЕТ ключей.
 
 set -u
 
@@ -22,12 +22,10 @@ need_cmd() {
 }
 
 clean_old_helper_firewall() {
-  echo "Чищу только старые секции, созданные ранними версиями helper-скрипта..."
-
+  echo "Чищу только старые firewall-секции, созданные ранними версиями helper-скрипта..."
   uci -q delete firewall.tailscale
   uci -q delete firewall.lan_to_tailscale
   uci -q delete firewall.tailscale_to_lan
-
   uci commit firewall
 
   if command -v fw4 >/dev/null 2>&1; then
@@ -37,7 +35,7 @@ clean_old_helper_firewall() {
   /etc/init.d/firewall restart || fail "firewall не перезапустился. Пришли вывод ошибки."
 }
 
-echo "RouteRich RemoteRouteRich setup v4-official"
+echo "RouteRich RemoteRouteRich setup v5-guide"
 echo "Скрипт не содержит ключей."
 echo "Нужен Device Auth Key из JSON, полученного на https://remote.routerich.ru"
 echo
@@ -84,6 +82,7 @@ hr
 echo "3. Проверяю/устанавливаю пакеты"
 opkg update || echo "ПРЕДУПРЕЖДЕНИЕ: opkg update не завершился успешно. Продолжаю, если пакеты уже стоят."
 
+# На RouteRich используется tailscale-lite. Полный пакет tailscale НЕ ставим.
 opkg install ca-bundle || true
 opkg install tailscale-lite luci-app-tailscale luci-i18n-tailscale-ru || true
 
@@ -96,7 +95,11 @@ uci -q get tailscale.settings >/dev/null 2>&1 || uci set tailscale.settings='tai
 uci set tailscale.settings.enabled='1'
 uci set tailscale.settings.login_server="$LOGIN_SERVER"
 uci set tailscale.settings.accept_dns='0'
-uci set tailscale.settings.accept_routes='0'
+
+# По гайду RouteRich для ZeroBlock/Podkop нужно включать Accept Routes.
+# Для обычного LuCI/SSH это не критично, но безопасно оставить включённым в вашей сети.
+uci set tailscale.settings.accept_routes='1'
+
 uci commit tailscale
 
 /etc/init.d/tailscale enable || true
@@ -110,26 +113,18 @@ if ! ps w | grep -E '[t]ailscaled' >/dev/null 2>&1; then
 fi
 
 hr
-echo "5. Добавляю интерфейс tailscale0 в UCI для выбора в LuCI"
-uci -q delete network.tailscale
-uci set network.tailscale='interface'
-uci set network.tailscale.proto='none'
-uci set network.tailscale.device='tailscale0'
-uci commit network
-/etc/init.d/network reload || true
-
-hr
-echo "6. Убираю только старые конфликтные секции helper-скрипта"
+echo "5. Чищу старые конфликтные секции от предыдущих helper-скриптов"
 clean_old_helper_firewall
 
 hr
-echo "7. Подключаю к RemoteRouteRich"
+echo "6. Подключаю к RemoteRouteRich"
 tailscale up \
   --reset \
   --login-server="$LOGIN_SERVER" \
   --auth-key="$DEVICE_AUTH_KEY" \
   --hostname="$HOSTNAME_SAFE" \
-  --accept-dns=false || {
+  --accept-dns=false \
+  --accept-routes || {
     echo
     echo "tailscale up завершился с ошибкой."
     echo "Если видишь ссылку https://rc.routerich.ru/a/r/... — Device Auth Key не принят или пустой/не тот."
@@ -137,7 +132,7 @@ tailscale up \
   }
 
 hr
-echo "8. Проверка"
+echo "7. Проверка"
 sleep 5
 
 TS_IP="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
@@ -153,7 +148,7 @@ echo "ГОТОВО."
 echo "Hostname: $HOSTNAME_SAFE"
 echo "Tailscale IP: $TS_IP"
 echo
-echo "Открывать LuCI с устройства, которое тоже подключено к RemoteRouteRich/Tailscale:"
+echo "LuCI открывать с ПК/телефона, который тоже подключён к RemoteRouteRich/Tailscale:"
 echo "  http://$TS_IP/cgi-bin/luci/"
 echo
 echo "SSH:"
